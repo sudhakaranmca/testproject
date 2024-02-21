@@ -1,0 +1,93 @@
+from slack_sdk import WebClient
+import logging
+import os
+import time
+from pprint import pprint 
+os.environ["SLACK_API_TOKEN"] = "xoxb-6600543774630-6604912956981-ZJruJCoz5VkvbvJ1dCJUQ1dy"
+SLACK_API_TOKEN = os.environ.get("SLACK_API_TOKEN")
+
+slack_client = WebClient(token=SLACK_API_TOKEN)
+
+def get_public_channels():
+    cursor = None
+    channels = []
+    while True:
+        response = slack_client.conversations_list(cursor=cursor)
+
+        for channel in response["channels"]:
+            channels.append(channel["id"])
+
+        cursor = response["response_metadata"]["next_cursor"]
+        if len(cursor) == 0:
+            break
+        else:
+            print("Pagination found, getting next entries")
+            time.sleep(3)
+
+    return channels
+
+slack_channels = get_public_channels()
+#pprint(slack_channels)
+
+
+def test(slack_channels):
+  
+  conversation_history = []
+  channel_id = "C06HV5L83SN"
+  logger = logging.getLogger()
+  
+  try:
+      result = slack_client.conversations_history(channel=channel_id)
+
+      conversation_history = result["messages"]
+      pprint(conversation_history)
+
+      # Print results
+      logger.info("{} messages found in {}".format(len(conversation_history), channel_id))
+
+  except SlackApiError as e:
+      logger.error("Error creating conversation: {}".format(e))
+
+
+#test(slack_channels)
+
+def userlist():
+  response = slack_client.users_list()
+  users = response["members"]
+  user_ids = list(map(lambda u: u["name"], users))
+  print("------------------->>>>>>>>>",user_ids)
+
+def get_channel_messages(slack_channels):
+    messages = []
+    for slack_channel in slack_channels:
+        cursor = None
+        while True:
+
+            try:
+              channel_history = slack_client.conversations_history(channel=slack_channel, cursor=cursor)
+            except Exception:
+              raise
+              
+            for message in channel_history["messages"]:
+                if (message["type"] == "message"):
+                    messages.append((slack_channel, message["text"]))
+
+            if bool(channel_history["has_more"]):
+                cursor = channel_history["response_metadata"]["next_cursor"]
+            else:
+                cursor = None
+
+            if cursor is None:
+                break
+            else:
+                print("Pagination found, getting next entries")
+                time.sleep(1.2)
+          
+    return messages
+
+
+
+#slack_channels = get_public_channels()
+messages = get_channel_messages(slack_channels)
+pprint(messages)
+userlist()
